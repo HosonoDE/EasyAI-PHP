@@ -5,6 +5,7 @@
 	use Exception;
 
 	use GuzzleHttp\Psr7\Utils;
+	use GuzzleHttp\RequestOptions;
 
 	use EasyAI\Chat\Enums\ChatRole;
 	use EasyAI\Chat\Enums\OpenAIChatModel;
@@ -27,6 +28,9 @@
 	class OpenAIChat implements ChatInterface
 	{
 		private readonly Client $client;
+		private const DEFAULT_TIMEOUT = 600;
+		private const DEFAULT_CONNECT_TIMEOUT = 30;
+		private const MAX_RETRIES = 3;
 
 		public string $model;
 
@@ -59,9 +63,25 @@
 					throw new Exception('You have to provide a OPENAI_API_KEY env var to request OpenAI.');
 				}
 
-				$this->client = OpenAI::client($apiKey);
+				// Configure Guzzle client with proper options
+				$clientOptions = [
+					RequestOptions::TIMEOUT => $config->timeout ?? self::DEFAULT_TIMEOUT,
+					RequestOptions::CONNECT_TIMEOUT => $config->connectTimeout ?? self::DEFAULT_CONNECT_TIMEOUT,
+					RequestOptions::HEADERS => [
+						'Connection' => 'keep-alive',
+						'Keep-Alive' => 'timeout=' . ($config->timeout ?? self::DEFAULT_TIMEOUT),
+					],
+					RequestOptions::HTTP_ERRORS => true,
+				];
+				$httpClient = new \GuzzleHttp\Client($clientOptions);
+
+				// OpenAi Client
+				$this->client = OpenAI::factory()
+					->withApiKey($apiKey)
+					->withHttpClient($httpClient)
+					->make();
 			}
-			$this->model = $config->model ?? OpenAIChatModel::Gpt4Turbo->getModelName();
+			$this->model = $config->model ?? OpenAIChatModel::Gpt4o->getModelName();
 			$this->modelOptions = $config->modelOptions ?? [];
 		}
 
