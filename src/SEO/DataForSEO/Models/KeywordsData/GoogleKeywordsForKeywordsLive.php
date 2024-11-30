@@ -4,7 +4,7 @@
 
 	use EasyAI\SEO\DataForSEO\DataForSEOClient;
 
-	class GoogleKeywordsForSiteLive
+	class GoogleKeywordsForKeywordsLive
 	{
 		public function __construct(
 			/**
