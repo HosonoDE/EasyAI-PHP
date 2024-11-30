@@ -5,11 +5,12 @@
 	use Exception;
 	use EasyAI\Embeddings\Vector;
 	use EasyAI\VectorStores\VectorStoreBase;
-	use EasyAI\PineconeConfig;
+	use EasyAI\VectorStores\Pinecone\PineconeConfig;
 
 	use \Probots\Pinecone\Client as Pinecone;
 
 	use function getenv;
+
 	class PineconeVectorStore extends VectorStoreBase
 	{
 		public $pinecone;
@@ -51,16 +52,16 @@
 		{
 			// Checks if id is existing
 			// Later: Add Check if space or illegal char is found
-			if(!isset($vector->id)) {
+			if (!isset($vector->id)) {
 				// Create hash based on content
 				$vector->id = hash('sha256', $vector->content); // Issue: If same content
 			}
 
 			// Checks if namespace is existing
-			if(!isset($vector->namespace)) {
+			if (!isset($vector->namespace)) {
 				// Use default namespace of pinecone
 				// https://docs.pinecone.io/guides/indexes/using-namespaces#querying-a-namespace
-				$vector->namespace = "";
+				$vector->namespace = '';
 			}
 
 			// Checks if ID is existing
@@ -102,7 +103,7 @@
 
 		public function deleteVector(Vector $vector): void
 		{
-			if(!isset($vector->id)) {
+			if (!isset($vector->id)) {
 				throw new Exception('A `id` is required for deleting a vector');
 			} else {
 				$response = $this->pinecone->data()->vectors()->delete(
@@ -113,11 +114,26 @@
 		}
 
 		/**
+		 * Delte all vectors
+		 */
+		public function deleteAllVectors($namespace = ''): void
+		{
+			// To target default namespace use ""
+			// https://docs.pinecone.io/guides/data/delete-data#delete-all-records-from-an-index:~:text=default%20namespace%2C%20set-,namespace%20to%20%22%22.,-Deleting%20all%20records
+
+			// Delete all vectors from namespace
+			$response = $this->pinecone->data()->vectors()->delete(
+				deleteAll: true,
+				namespace: $namespace
+			);
+		}
+
+		/**
 		 * @throws Exception
 		 */
 		public function similaritySearch(array $embedding, int $k = 4, array $additionalArguments = []): array
 		{
-			if(!isset($embedding)) {
+			if (!isset($embedding)) {
 				throw new Exception('No embedding passed!');
 			} else {
 				$response = $this->pinecone->data()->vectors()->query(
@@ -125,12 +141,12 @@
 					topK: $k,
 					includeValues: $additionalArguments['includeValues'] ?? false,
 					includeMetadata: $additionalArguments['includeMetadata'] ?? true,
-					namespace: $additionalArguments["namespace"] ?? "", // Use default if not set
+					namespace: $additionalArguments['namespace'] ?? '', // Use default if not set
 				);
 
 				if ($response->successful()) {
 					$json_result = json_decode($response->body(), true);
-					return $json_result["matches"];
+					return $json_result['matches'];
 				} else {
 					throw new Exception('Pinecone response error');
 				}
