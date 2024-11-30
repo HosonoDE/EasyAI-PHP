@@ -5,7 +5,7 @@
 	use Exception;
 	use EasyAI\Embeddings\Vector;
 	use EasyAI\VectorStores\VectorStoreBase;
-	use EasyAI\VectorStores\Pinecone\PineconeConfig;
+	use EasyAI\PineconeConfig;
 
 	use \Probots\Pinecone\Client as Pinecone;
 
