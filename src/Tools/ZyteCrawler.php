@@ -13,6 +13,8 @@
 		private readonly Client $client;
 		private string $apiKey;
 		private string $errorHandlingStrategy;
+		private readonly Cleaner $cleaner;
+		private readonly Client $clientZyte;
 
 		public function __construct(
 			?ZyteConfig $config = null
@@ -62,11 +64,29 @@
 			return $texts;
 		}
 
+		public function getBrowserTexts(array $urls): array
+		{
+			$texts = [];
+			foreach ($urls as $url) {
+				$texts[$url] = $this->getBrowserText($url);
+			}
+			return $texts;
+		}
+
 		public function getHtmls(array $urls): array
 		{
 			$texts = [];
 			foreach ($urls as $url) {
 				$texts[$url] = $this->getHtml($url);
+			}
+			return $texts;
+		}
+
+		public function getBrowserHtmls(array $urls): array
+		{
+			$texts = [];
+			foreach ($urls as $url) {
+				$texts[$url] = $this->getBrowserHtml($url);
 			}
 			return $texts;
 		}
@@ -87,6 +107,32 @@
 			try {
 				// use getZyteHtml for HTML
 				$html = $this->getHtml($url);
+				return $this->cleaner->cleanHtml($html);
+			} catch (Exception $e) {
+				if ($this->errorHandlingStrategy == 'return') { // Return to send it to e.g. AI or save in DB
+					return $e->getMessage();
+				} elseif ($this->errorHandlingStrategy == 'throw') {
+					throw new \Exception($e->getMessage());
+				}
+			}
+		}
+
+		/**
+		 * Fetches and cleans browser-rendered HTML from a provided URL.
+		 *
+		 * @param string $url The URL from which to fetch the browser-rendered HTML.
+		 *
+		 * @return string Returns the cleaned browser-rendered HTML text. If an exception occurs and the error handling strategy
+		 * is set to 'return', it will return the error message.
+		 *
+		 * @throws \Exception If an exception occurs and the error handling strategy is set
+		 * to 'throw', it will throw the exception with its message.
+		 */
+		public function getBrowserText(string $url): string
+		{
+			try {
+				// use getBrowserHtml for browser-rendered HTML
+				$html = $this->getBrowserHtml($url);
 				return $this->cleaner->cleanHtml($html);
 			} catch (Exception $e) {
 				if ($this->errorHandlingStrategy == 'return') { // Return to send it to e.g. AI or save in DB
@@ -123,9 +169,9 @@
 
 				if ($html === false) {
 					if ($this->errorHandlingStrategy == 'return') { // Return to send it to e.g. AI or save in DB
-						return $e->getMessage();
+						return 'Error: Failed to decode httpResponseBody';
 					} elseif ($this->errorHandlingStrategy == 'throw') {
-						throw new \Exception($e->getMessage());
+						throw new \Exception('Error: Failed to decode httpResponseBody');
 					}
 				} else {
 					return $html;
@@ -140,7 +186,60 @@
 					'message' => $errorMsg
 				];
 				return json_encode($response);
-				
+
+			} catch (Exception $e) {
+				if ($this->errorHandlingStrategy == 'return') { // Return to send it to e.g. AI or save in DB
+					return $e->getMessage();
+				} elseif ($this->errorHandlingStrategy == 'throw') {
+					throw new \Exception($e->getMessage());
+				}
+			}
+		}
+
+		/**
+		 * Retrieves the browser-rendered HTML content of a given URL using the Zyte API.
+		 *
+		 * @param string $url The URL for which to retrieve the browser-rendered HTML content.
+		 * @return string The browser-rendered HTML content of the URL.
+		 * @throws \Exception If an error occurs and the error handling strategy is set to 'throw'.
+		 */
+		public function getBrowserHtml(string $url): string
+		{
+			// Zyte Config
+			$zyteOptions = [
+				'auth' => [$this->apiKey, ''],
+				'headers' => ['Accept-Encoding' => 'gzip'],
+				'json' => [
+					'url' => $url,
+					'browserHtml' => true,
+				],
+			];
+			try {
+				// Request Zyte API
+				$response = $this->clientZyte->request('POST', 'https://api.zyte.com/v1/extract', $zyteOptions);
+				$data = json_decode($response->getBody());
+				$html = $data->browserHtml;
+
+				if ($html === null) {
+					if ($this->errorHandlingStrategy == 'return') { // Return to send it to e.g. AI or save in DB
+						return 'Error: browserHtml not found in response';
+					} elseif ($this->errorHandlingStrategy == 'throw') {
+						throw new \Exception('Error: browserHtml not found in response');
+					}
+				} else {
+					return $html;
+				}
+			} catch (\GuzzleHttp\Exception\RequestException $e) {
+				// Catch GuzzleHttp Exection
+				$statusCode = $e->getResponse()->getStatusCode();
+				$errorMsg = $e->getResponse()->getBody()->getContents();
+				$response = [
+					'status' => 'error',
+					'code' => $statusCode,
+					'message' => $errorMsg
+				];
+				return json_encode($response);
+
 			} catch (Exception $e) {
 				if ($this->errorHandlingStrategy == 'return') { // Return to send it to e.g. AI or save in DB
 					return $e->getMessage();

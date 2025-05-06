@@ -15,7 +15,7 @@
 	{
 		public $pinecone;
 
-		public function __construct(?PineconeConfig $config = null)
+		public function __construct(?PineconeConfig $config)
 		{
 			if (!class_exists(Pinecone::class)) {
 				throw new \RuntimeException('To use this functionality, you must install the package: `composer require probots-io/pinecone-php`.');

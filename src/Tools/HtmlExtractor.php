@@ -176,7 +176,7 @@
 			return $getHeadlineHierarchyRecursive($this->crawler, 0);
 		}
 
-		public function extractSeo(array $options = null): ?array
+		public function extractSeo(?array $options): ?array
 		{
 			$selectors = [
 				':not(svg) > title' => function ($node) { return $node->each(function($node) { return $node->text(); }); },
